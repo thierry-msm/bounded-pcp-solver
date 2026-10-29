@@ -42,6 +42,15 @@ const PRESETS = {
       { id: 3, top: '11', bottom: '101' }
     ]
   },
+  long: {
+    name: 'Solução longa (15 peças)',
+    k: 15,
+    dominoes: [
+      { id: 1, top: 'ba', bottom: 'a' },
+      { id: 2, top: 'baa', bottom: 'b' },
+      { id: 3, top: 'a', bottom: 'aba' }
+    ]
+  },
   impossible: {
     name: 'Sem Solução em K',
     k: 6,
@@ -114,6 +123,7 @@ function initUIElements() {
 
   sliderK.addEventListener('input', (e) => updateK(e.target.value));
   inputK.addEventListener('change', (e) => updateK(e.target.value));
+  updateK(state.maxK); // K pode ter vindo da URL
 
   // Presets Selector (Header)
   const presetSelector = document.getElementById('preset-selector');
@@ -207,6 +217,14 @@ function initUIElements() {
   document.getElementById('json-modal-backdrop').addEventListener('click', closeJSONModal);
   document.getElementById('btn-copy-json').addEventListener('click', copyJSONToClipboard);
   document.getElementById('btn-import-json').addEventListener('click', importJSONData);
+
+  // Esc fecha gaveta e modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeDrawer();
+      closeJSONModal();
+    }
+  });
 }
 
 // ============================================================================
@@ -221,30 +239,23 @@ function renderDominoPalette() {
 
   if (state.dominoes.length === 0) {
     container.innerHTML = `
-      <div class="text-xs text-slate-500 italic py-6 text-center w-full">
-        Nenhum dominó disponível. Crie um no formulário acima ou selecione um preset!
-      </div>
+      <div class="empty">Nenhuma peça. Adicione uma acima ou carregue um exemplo.</div>
     `;
     return;
   }
 
   state.dominoes.forEach((domino) => {
     const tile = document.createElement('div');
-    tile.className = 'domino-tile group';
+    tile.className = 'domino-tile';
     tile.dataset.id = domino.id;
-    tile.title = `Clique para adicionar à esteira (ID: #${domino.id})`;
+    tile.title = `Peça #${domino.id}: clique para colocar na esteira`;
 
     tile.innerHTML = `
       <span class="domino-badge">#${domino.id}</span>
-      
-      <!-- Botão de exclusão rápida no hover -->
-      <button class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-rose-600 hover:bg-rose-500 text-white text-[10px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-sm z-10" title="Excluir este dominó" data-delete-id="${domino.id}">
-        ✕
-      </button>
-
-      <div class="domino-half domino-top font-mono-code">${escapeHTML(domino.top)}</div>
+      <button class="tile-remove" title="Excluir esta peça" aria-label="Excluir peça #${domino.id}" data-delete-id="${domino.id}">×</button>
+      <div class="domino-half">${escapeHTML(domino.top)}</div>
       <div class="domino-divider"></div>
-      <div class="domino-half domino-bottom font-mono-code">${escapeHTML(domino.bottom)}</div>
+      <div class="domino-half">${escapeHTML(domino.bottom)}</div>
     `;
 
     // Clique no dominó adiciona à esteira manual
@@ -311,9 +322,7 @@ function updateConveyorBelt() {
 
   if (count === 0) {
     listEl.innerHTML = `
-      <div class="text-xs text-slate-500 italic mx-auto py-4">
-        Nenhum dominó na esteira. Clique em um dominó da paleta para começar ou use o solver.
-      </div>
+      <div class="empty">Nenhuma peça na esteira.</div>
     `;
     renderTapeTracks('', '');
     updateTapeStatusBanner({ isMatch: false, isEmpty: true });
@@ -335,17 +344,15 @@ function updateConveyorBelt() {
     bottomStr += d.bottom;
 
     const tile = document.createElement('div');
-    tile.className = 'domino-tile domino-mini relative shrink-0 group';
-    tile.title = `Passo ${index + 1} na sequência (Dominó #${d.id}). Clique para remover.`;
+    tile.className = 'domino-tile domino-mini';
+    tile.title = `Posição ${index + 1} (peça #${d.id}). Clique para remover.`;
 
     tile.innerHTML = `
-      <span class="domino-badge">#${index + 1}</span>
-      <button class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-600 text-white text-[9px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition shadow-sm z-10">
-        ✕
-      </button>
-      <div class="domino-half domino-top font-mono-code">${escapeHTML(d.top)}</div>
+      <span class="domino-badge">#${d.id}</span>
+      <span class="tile-remove" aria-hidden="true">×</span>
+      <div class="domino-half">${escapeHTML(d.top)}</div>
       <div class="domino-divider"></div>
-      <div class="domino-half domino-bottom font-mono-code">${escapeHTML(d.bottom)}</div>
+      <div class="domino-half">${escapeHTML(d.bottom)}</div>
     `;
 
     // Clicar em um dominó montado na esteira remove-o daquela posição
@@ -379,8 +386,8 @@ function renderTapeTracks(topStr, bottomStr) {
   const maxLen = Math.max(topStr.length, bottomStr.length);
 
   if (maxLen === 0) {
-    trackTop.innerHTML = '<span class="text-xs text-slate-600 font-mono py-1 px-2">vazio</span>';
-    trackBottom.innerHTML = '<span class="text-xs text-slate-600 font-mono py-1 px-2">vazio</span>';
+    trackTop.innerHTML = '<span class="tape-empty">vazio</span>';
+    trackBottom.innerHTML = '<span class="tape-empty">vazio</span>';
     return;
   }
 
@@ -454,49 +461,36 @@ function updateTapeStatusBanner({ isEmpty, isMatch, firstMismatch, topStr, botto
   const content = document.getElementById('tape-status-content');
   const detail = document.getElementById('tape-status-detail');
 
-  banner.className = 'rounded-lg p-2.5 text-xs font-medium flex items-center justify-between border transition';
+  banner.className = 'status';
 
   if (isEmpty) {
-    banner.classList.add('bg-slate-800/80', 'border-white/10', 'text-slate-300');
-    content.innerHTML = `
-      <span class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
-      <span>Esteira vazia. Clique nas peças para montar ou execute o Solver.</span>
-    `;
+    content.textContent = 'Esteira vazia. Clique nas peças ou rode a busca.';
     detail.textContent = '';
     return;
   }
 
   if (isMatch) {
-    banner.classList.add('bg-emerald-950/60', 'border-emerald-500/60', 'text-emerald-300', 'tape-matched-glow');
-    content.innerHTML = `
-      <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-      <span class="font-bold">🎉 CORRESPONDÊNCIA EXATA ENCONTRADA! (${state.conveyorSequence.length} peças)</span>
-    `;
-    detail.textContent = `String: "${topStr}"`;
+    banner.classList.add('status--match');
+    content.innerHTML = `<strong>Correspondência:</strong> topo e base formam a mesma palavra com ${state.conveyorSequence.length} peça${state.conveyorSequence.length === 1 ? '' : 's'}.`;
+    detail.textContent = `"${topStr}"`;
     return;
   }
 
   if (firstMismatch !== -1) {
-    banner.classList.add('bg-rose-950/50', 'border-rose-600/60', 'text-rose-300');
-    content.innerHTML = `
-      <span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
-      <span><strong>Divergência detectada</strong> no caractere ${firstMismatch + 1} (Topo: '${topStr[firstMismatch]}' ≠ Base: '${bottomStr[firstMismatch]}')</span>
-    `;
-    detail.textContent = 'Poda de Prefixo Violada';
+    banner.classList.add('status--mismatch');
+    content.innerHTML = `<strong>Divergência</strong> na posição ${firstMismatch + 1}: topo tem '${escapeHTML(topStr[firstMismatch])}', base tem '${escapeHTML(bottomStr[firstMismatch])}'.`;
+    detail.textContent = 'seria podado';
     return;
   }
 
   // Prefixo mantido, mas com tamanho desigual
   const diff = Math.abs(topStr.length - bottomStr.length);
-  const leadingSide = topStr.length > bottomStr.length ? 'Fita Superior' : 'Fita Inferior';
+  const leadingSide = topStr.length > bottomStr.length ? 'O topo' : 'A base';
   const remainder = topStr.length > bottomStr.length ? topStr.slice(bottomStr.length) : bottomStr.slice(topStr.length);
 
-  banner.classList.add('bg-amber-950/40', 'border-amber-600/50', 'text-amber-300');
-  content.innerHTML = `
-    <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
-    <span><strong>Prefixo Válido:</strong> ${leadingSide} adiantada em ${diff} caractere${diff === 1 ? '' : 's'}</span>
-  `;
-  detail.textContent = `Excesso (cauda): "${remainder}"`;
+  banner.classList.add('status--partial');
+  content.innerHTML = `<strong>Ainda compatível.</strong> ${leadingSide} está ${diff} caractere${diff === 1 ? '' : 's'} à frente.`;
+  detail.textContent = `excedente: "${remainder}"`;
 }
 
 // ============================================================================
@@ -519,18 +513,11 @@ function startWebWorkerSolve() {
   state.isSolving = true;
   const btnFastSolve = document.getElementById('btn-fast-solve');
   btnFastSolve.disabled = true;
-  btnFastSolve.innerHTML = `
-    <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-    </svg>
-    <span>Buscando em Worker...</span>
-  `;
+  btnFastSolve.innerHTML = '<span class="spinner"></span><span>Buscando…</span>';
 
   const resultContainer = document.getElementById('solver-result-container');
-  resultContainer.className = 'rounded-xl p-3 bg-slate-900/90 border border-cyan-500/30 text-xs text-cyan-300 flex items-center justify-between';
-  resultContainer.innerHTML = '<span>Explorando árvore de busca BFS com podas inteligentes...</span>';
-  resultContainer.classList.remove('hidden');
+  resultContainer.className = 'result result--running';
+  resultContainer.innerHTML = '<span>Explorando a árvore de busca em largura…</span>';
 
   try {
     state.activeWorker = createPCPWorker();
@@ -580,12 +567,7 @@ function finishWebWorkerSolve(result) {
 
   const btnFastSolve = document.getElementById('btn-fast-solve');
   btnFastSolve.disabled = false;
-  btnFastSolve.innerHTML = `
-    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-    </svg>
-    <span>Resolver com Web Worker</span>
-  `;
+  btnFastSolve.textContent = 'Resolver';
 
   // Atualiza métricas finais
   state.metrics.time = result.executionTimeMs.toFixed(2);
@@ -597,45 +579,34 @@ function finishWebWorkerSolve(result) {
   updateMetricsDisplay();
 
   const resultContainer = document.getElementById('solver-result-container');
-  resultContainer.classList.remove('hidden');
 
   if (result.hasSolution) {
-    const seqStr = result.solution.sequence.map(id => `#${id}`).join(' → ');
-    resultContainer.className = 'rounded-xl p-4 bg-emerald-950/40 border border-emerald-500/50 text-slate-200 flex flex-col md:flex-row items-start md:items-center justify-between gap-3';
+    const seqStr = result.solution.sequence.map(id => `#${id}`).join(' ');
+    const n = result.solution.sequence.length;
+    resultContainer.className = 'result result--ok';
     resultContainer.innerHTML = `
       <div>
-        <div class="flex items-center gap-2 mb-1">
-          <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-emerald-500 text-slate-950">SOLUÇÃO ENCONTRADA</span>
-          <span class="text-xs text-emerald-400 font-semibold font-mono">${result.solution.sequence.length} peças (m ≤ ${state.maxK})</span>
-        </div>
-        <div class="text-xs font-mono text-slate-300">
-          Sequência: <span class="text-cyan-300 font-bold">${seqStr}</span> &bull; String: <span class="text-emerald-400 font-bold">"${result.solution.string}"</span>
-        </div>
+        <strong>Solução com ${n} peça${n === 1 ? '' : 's'}</strong> (a menor possível, m ≤ ${state.maxK})
+        <p>Sequência <span class="mono">${seqStr}</span> &middot; palavra <span class="mono">"${escapeHTML(result.solution.string)}"</span></p>
       </div>
-      <button id="btn-load-solution" class="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition shadow-md shadow-emerald-600/30 shrink-0">
-        Carregar na Esteira 📥
-      </button>
+      <button id="btn-load-solution" class="btn btn-sm">Mostrar na esteira</button>
     `;
 
     document.getElementById('btn-load-solution').addEventListener('click', () => {
       state.conveyorSequence = [...result.solution.sequence];
       updateConveyorBelt();
-      showToast('Solução carregada na esteira interativa!', 'success');
     });
 
-    showToast(`Solução encontrada com ${result.solution.sequence.length} dominós!`, 'success');
+    showToast(`Solução encontrada com ${n} peça${n === 1 ? '' : 's'}.`, 'success');
   } else {
-    resultContainer.className = 'rounded-xl p-4 bg-amber-950/40 border border-amber-600/50 text-slate-200 flex flex-col gap-1';
+    resultContainer.className = 'result result--none';
     resultContainer.innerHTML = `
-      <div class="flex items-center gap-2">
-        <span class="px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500 text-slate-950">SEM SOLUÇÃO</span>
-        <span class="text-xs text-amber-300 font-semibold">Nenhuma correspondência com m ≤ ${state.maxK}</span>
+      <div>
+        <strong>Sem solução com até ${state.maxK} peças.</strong>
+        <p>Todos os ramos foram explorados ou podados. Tente aumentar K ou mudar as peças.</p>
       </div>
-      <p class="text-xs text-slate-400">
-        O algoritmo esgotou todas as combinações válidas ou podou os ramos inviáveis. Tente aumentar o limite K ou alterar as peças.
-      </p>
     `;
-    showToast(`Nenhuma solução existe para K ≤ ${state.maxK}.`, 'info');
+    showToast(`Nenhuma solução com K ≤ ${state.maxK}.`, 'info');
   }
 }
 
@@ -646,12 +617,14 @@ function toggleDidacticMode() {
   state.isDidacticMode = !state.isDidacticMode;
   const panel = document.getElementById('didactic-controls-panel');
   const logPanel = document.getElementById('didactic-log-container');
+  const toggleBtn = document.getElementById('btn-toggle-didactic');
+  toggleBtn.classList.toggle('btn-pressed', state.isDidacticMode);
+  toggleBtn.setAttribute('aria-pressed', state.isDidacticMode);
 
   if (state.isDidacticMode) {
     panel.classList.remove('hidden');
     logPanel.classList.remove('hidden');
     resetDidactic();
-    showToast('Modo Didático Ativado. Clique em "Próximo Passo" ou "Executar".', 'info');
   } else {
     panel.classList.add('hidden');
     logPanel.classList.add('hidden');
@@ -664,8 +637,9 @@ function resetDidactic() {
   pauseDidactic();
   state.didacticGenerator = solvePCPStepByStep(state.dominoes, state.maxK);
   document.getElementById('didactic-log-entries').innerHTML = '';
+  document.getElementById('solver-result-container').classList.add('hidden');
   clearActiveEvalDomino();
-  appendDidacticLog(`Iniciado novo gerador com ${state.dominoes.length} dominós e K=${state.maxK}.`);
+  appendDidacticLog('pronto', `${state.dominoes.length} peças, K = ${state.maxK}. Use "Próximo passo" ou "Executar".`);
 }
 
 function toggleDidacticPlay() {
@@ -674,9 +648,8 @@ function toggleDidacticPlay() {
     pauseDidactic();
   } else {
     state.didacticRunning = true;
-    playBtn.textContent = '⏸ Pausar';
-    playBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-500');
-    playBtn.classList.add('bg-amber-600', 'hover:bg-amber-500');
+    playBtn.textContent = 'Pausar';
+    playBtn.classList.add('btn-pressed');
     runDidacticLoop();
   }
 }
@@ -689,9 +662,8 @@ function pauseDidactic() {
   }
   const playBtn = document.getElementById('btn-didactic-play');
   if (playBtn) {
-    playBtn.textContent = '▶ Executar';
-    playBtn.classList.remove('bg-amber-600', 'hover:bg-amber-500');
-    playBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-500');
+    playBtn.textContent = 'Executar';
+    playBtn.classList.remove('btn-pressed');
   }
 }
 
@@ -713,7 +685,7 @@ async function stepDidactic() {
   const { value, done } = await state.didacticGenerator.next();
 
   if (done || !value) {
-    appendDidacticLog('🏁 Busca concluída ou gerador finalizado.');
+    appendDidacticLog('fim', 'Busca concluída. Clique em "Reiniciar" para recomeçar.');
     clearActiveEvalDomino();
     return true;
   }
@@ -734,41 +706,41 @@ async function stepDidactic() {
   // Processa o tipo de evento didático
   switch (value.type) {
     case 'START':
-      appendDidacticLog(`🚀 ${value.message}`);
+      appendDidacticLog('início', value.message);
       break;
 
     case 'EVALUATING_INITIAL':
       highlightDomino(value.domino.id);
       if (value.compatible) {
-        appendDidacticLog(`🌱 Dominó #${value.domino.id} aceito como raiz: ${value.reason}`, 'emerald');
+        appendDidacticLog('raiz', `#${value.domino.id} entra na fila: ${value.reason}`, 'ok');
       } else {
-        appendDidacticLog(`❌ Dominó #${value.domino.id} podado na raiz: ${value.reason}`, 'rose');
+        appendDidacticLog('raiz', `#${value.domino.id} descartada: ${value.reason}`, 'bad');
       }
       break;
 
     case 'EXPANDING_NODE':
-      appendDidacticLog(`🔍 Expandindo nó [${value.node.sequence.map(id => '#' + id).join(' → ')}] (profundidade ${value.node.depth})`);
+      appendDidacticLog('expande', `[${value.node.sequence.map(id => '#' + id).join(' ')}] (profundidade ${value.node.depth})`, 'strong');
       state.conveyorSequence = [...value.node.sequence];
       updateConveyorBelt();
       break;
 
     case 'CANDIDATE_REJECTED_PREFIX':
       highlightDomino(value.domino.id);
-      appendDidacticLog(`✂️ Dominó #${value.domino.id} rejeitado: ${value.reason}`, 'rose');
+      appendDidacticLog('prefixo', `+#${value.domino.id} podada: ${value.reason}`, 'bad');
       break;
 
     case 'CANDIDATE_REJECTED_CYCLE':
       highlightDomino(value.domino.id);
-      appendDidacticLog(`🔄 Dominó #${value.domino.id} podado por ciclo de cauda: ${value.reason}`, 'amber');
+      appendDidacticLog('estado', `+#${value.domino.id} podada: ${value.reason}`, 'warn');
       break;
 
     case 'PRUNED_DEPTH':
-      appendDidacticLog(`⛔ Poda por limite K atingido (${value.node.depth}): ${value.reason}`, 'purple');
+      appendDidacticLog('limite K', value.reason, 'warn');
       break;
 
     case 'CANDIDATE_ACCEPTED':
       highlightDomino(value.domino.id);
-      appendDidacticLog(`✅ Dominó #${value.domino.id} anexado com sucesso! Nova cauda: "${value.nextNode.remainder}"`, 'cyan');
+      appendDidacticLog('aceita', `+#${value.domino.id}, excedente "${value.nextNode.remainder}" vai para a fila`, 'accent');
       state.conveyorSequence = [...value.nextNode.sequence];
       updateConveyorBelt();
       break;
@@ -777,7 +749,7 @@ async function stepDidactic() {
       highlightDomino(value.node.sequence[value.node.sequence.length - 1]);
       state.conveyorSequence = [...value.solution.sequence];
       updateConveyorBelt();
-      appendDidacticLog(`🎉 SOLUÇÃO ENCONTRADA! Sequência [${value.solution.sequence.map(id => '#' + id).join(' → ')}] = "${value.solution.string}"`, 'emerald');
+      appendDidacticLog('solução', `[${value.solution.sequence.map(id => '#' + id).join(' ')}] = "${value.solution.string}"`, 'ok');
       finishWebWorkerSolve({
         hasSolution: true,
         solution: value.solution,
@@ -790,7 +762,7 @@ async function stepDidactic() {
       return true;
 
     case 'NO_SOLUTION':
-      appendDidacticLog(`🛑 ${value.message}`, 'amber');
+      appendDidacticLog('sem solução', value.message, 'warn');
       finishWebWorkerSolve({
         hasSolution: false,
         executionTimeMs: value.stats.executionTimeMs || 0,
@@ -805,21 +777,15 @@ async function stepDidactic() {
   return false;
 }
 
-function appendDidacticLog(text, color = 'slate') {
+function appendDidacticLog(tag, text, tone = '') {
   const container = document.getElementById('didactic-log-entries');
   const div = document.createElement('div');
-  
-  const colorMap = {
-    slate: 'text-slate-300',
-    emerald: 'text-emerald-400 font-semibold',
-    rose: 'text-rose-400',
-    amber: 'text-amber-400',
-    cyan: 'text-cyan-300',
-    purple: 'text-purple-400'
-  };
+  div.className = tone ? `log-line log-line--${tone}` : 'log-line';
 
-  div.className = `${colorMap[color] || 'text-slate-300'} text-[11px] font-mono leading-relaxed`;
-  div.textContent = `> ${text}`;
+  const tagEl = document.createElement('span');
+  tagEl.className = 'log-tag';
+  tagEl.textContent = tag;
+  div.append(tagEl, text);
   container.appendChild(div);
 
   const parent = document.getElementById('didactic-log-container');
@@ -854,21 +820,11 @@ function updateMetricsDisplay() {
 // 10. GAVETA LATERAL TEÓRICA (THEORETICAL DRAWER)
 // ============================================================================
 function openDrawer() {
-  const container = document.getElementById('drawer-container');
-  const panel = document.getElementById('drawer-panel');
-
-  container.classList.remove('pointer-events-none', 'opacity-0');
-  container.classList.add('opacity-100');
-  panel.classList.remove('translate-x-full');
+  document.getElementById('drawer-container').classList.add('is-open');
 }
 
 function closeDrawer() {
-  const container = document.getElementById('drawer-container');
-  const panel = document.getElementById('drawer-panel');
-
-  panel.classList.add('translate-x-full');
-  container.classList.remove('opacity-100');
-  container.classList.add('opacity-0', 'pointer-events-none');
+  document.getElementById('drawer-container').classList.remove('is-open');
 }
 
 // ============================================================================
@@ -897,7 +853,7 @@ function loadPreset(presetKey) {
     resetDidactic();
   }
 
-  showToast(`Preset "${preset.name}" carregado com sucesso!`, 'success');
+  showToast(`Exemplo carregado: ${preset.name}`, 'success');
 }
 
 // ============================================================================
@@ -945,7 +901,7 @@ function loadStateFromURL() {
 function copyShareURL() {
   syncStateToURL();
   navigator.clipboard.writeText(window.location.href).then(() => {
-    showToast('Link da instância copiado para a área de transferência! 🔗', 'success');
+    showToast('Link copiado.', 'success');
   }).catch(() => {
     prompt('Copie o link abaixo:', window.location.href);
   });
@@ -954,16 +910,13 @@ function copyShareURL() {
 function openJSONModal() {
   const container = document.getElementById('json-modal-container');
   const textarea = document.getElementById('json-textarea');
-  container.classList.remove('pointer-events-none', 'opacity-0');
-  container.classList.add('opacity-100');
+  container.classList.add('is-open');
 
   textarea.value = JSON.stringify(state.dominoes, null, 2);
 }
 
 function closeJSONModal() {
-  const container = document.getElementById('json-modal-container');
-  container.classList.remove('opacity-100');
-  container.classList.add('opacity-0', 'pointer-events-none');
+  document.getElementById('json-modal-container').classList.remove('is-open');
 }
 
 function copyJSONToClipboard() {
@@ -1013,27 +966,17 @@ function importJSONData() {
 function showToast(message, type = 'info') {
   const container = document.getElementById('toast-container');
   const toast = document.createElement('div');
-  toast.className = 'toast';
-
-  const icons = {
-    success: '✅',
-    error: '❌',
-    info: 'ℹ️'
-  };
-
-  toast.innerHTML = `
-    <span>${icons[type] || 'ℹ️'}</span>
-    <span>${escapeHTML(message)}</span>
-  `;
+  toast.className = `toast toast--${type}`;
+  toast.setAttribute('role', 'status');
+  toast.textContent = message;
 
   container.appendChild(toast);
 
   setTimeout(() => {
     toast.style.opacity = '0';
-    toast.style.transform = 'translateY(10px)';
-    toast.style.transition = 'all 0.25s ease';
-    setTimeout(() => toast.remove(), 250);
-  }, 3200);
+    toast.style.transform = 'translateY(8px)';
+    setTimeout(() => toast.remove(), 200);
+  }, 2800);
 }
 
 function escapeHTML(str) {

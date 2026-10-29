@@ -3,350 +3,207 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bounded-PCP: Resolvedor & Visualizador Interativo</title>
-  <meta name="description" content="Aplicação interativa para resolução e visualização do Problema da Correspondência de Post Limitado (Bounded-PCP) com BFS e podas matemáticas.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%2306b6d4'/><text y='.9em' font-size='70' x='15'>🁣</text></svg>">
+  <title>Bounded-PCP</title>
+  <meta name="description" content="Resolvedor e visualizador do Problema da Correspondência de Post Limitado (Bounded-PCP) com busca em largura e podas.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='9' y='2' width='14' height='28' rx='3' fill='%23fffdf6' stroke='%231c1b19' stroke-width='2'/><line x1='11' y1='16' x2='21' y2='16' stroke='%231c1b19' stroke-width='1.5'/><circle cx='16' cy='9' r='2' fill='%231c1b19'/><circle cx='16' cy='23' r='2' fill='%231c1b19'/></svg>">
 
-  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <!-- Fontes (se estiver offline, o CSS cai para fontes do sistema) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&display=swap" rel="stylesheet">
 
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          colors: {
-            brand: {
-              50: '#f0f9ff',
-              500: '#06b6d4',
-              600: '#0891b2',
-              700: '#0e7490',
-            }
-          }
-        }
-      }
-    }
-  </script>
-
-  <!-- Custom CSS -->
   <link rel="stylesheet" href="style.css">
 </head>
-<body class="text-slate-100 flex flex-col min-h-screen">
+<body>
 
   <!-- ========================================================================
-       HEADER / BARRA SUPERIOR
+       CABEÇALHO
        ======================================================================== -->
-  <header class="border-b border-white/10 bg-slate-950/80 backdrop-blur-md sticky top-0 z-30 px-4 lg:px-8 py-3.5">
-    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-3">
-      
-      <!-- Brand & Badges -->
-      <div class="flex items-center gap-3.5">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/25">
-          <svg class="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-          </svg>
-        </div>
-        <div>
-          <div class="flex items-center gap-2">
-            <h1 class="font-bold text-lg lg:text-xl tracking-tight text-white">Bounded-PCP Solver</h1>
-            <span class="text-xs px-2 py-0.5 rounded-full font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">NP-Completo</span>
-            <span class="text-xs px-2 py-0.5 rounded-full font-semibold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 hidden sm:inline-block">Post (1946)</span>
-          </div>
-          <p class="text-xs text-slate-400">Problema da Correspondência de Post Limitado &bull; BFS com Podas Inteligentes</p>
-        </div>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <h1>Bounded-PCP</h1>
+        <p>Problema da Correspondência de Post com limite <i>K</i> &middot; busca em largura com podas</p>
       </div>
 
-      <!-- Action Buttons -->
-      <div class="flex items-center gap-2 flex-wrap">
-        
-        <!-- Presets Selector -->
-        <div class="relative">
-          <select id="preset-selector" class="bg-slate-900 border border-white/10 rounded-lg px-3 py-1.5 text-xs font-medium text-slate-200 focus:outline-none focus:border-cyan-500 cursor-pointer hover:bg-slate-800 transition">
-            <option value="" disabled selected>📂 Carregar Exemplo...</option>
-            <option value="sipser">Exemplo 1: Sipser 5.15 (Clássico - 5 peças)</option>
-            <option value="fast">Exemplo 2: Solução Rápida (2 peças)</option>
-            <option value="trivial">Exemplo 3: Match Imediato (1 peça)</option>
-            <option value="binary">Exemplo 4: Desafio Binário {0, 1}</option>
-            <option value="impossible">Exemplo 5: Sem Solução em K</option>
-          </select>
-        </div>
-
-        <!-- Teoria Button -->
-        <button id="btn-open-drawer" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 text-xs font-semibold transition active:scale-95 shadow-sm">
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
-          <span>O que é PCP?</span>
-        </button>
-
-        <!-- Share URL Button -->
-        <button id="btn-share-url" title="Copiar link com esta instância" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 text-xs font-medium transition active:scale-95">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-          </svg>
-          <span class="hidden md:inline">Compartilhar</span>
-        </button>
-
-        <!-- JSON Import/Export Button -->
-        <button id="btn-open-json" title="Importar ou Exportar JSON" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 text-xs font-medium transition active:scale-95">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-          </svg>
-          <span class="hidden md:inline">JSON</span>
-        </button>
-
+      <div class="topbar-actions">
+        <select id="preset-selector" class="select" aria-label="Carregar exemplo">
+          <option value="" disabled selected>Carregar exemplo…</option>
+          <option value="sipser">Sipser 5.15 (4 peças)</option>
+          <option value="fast">Solução rápida (2 peças)</option>
+          <option value="trivial">Match imediato (1 peça)</option>
+          <option value="binary">Binário {0, 1}</option>
+          <option value="long">Solução longa (15 peças)</option>
+          <option value="impossible">Sem solução</option>
+        </select>
+        <button id="btn-open-drawer" class="btn">Teoria</button>
+        <button id="btn-share-url" class="btn" title="Copiar link com esta instância">Copiar link</button>
+        <button id="btn-open-json" class="btn" title="Importar ou exportar JSON">JSON</button>
       </div>
     </div>
   </header>
 
   <!-- ========================================================================
-       CONTEÚDO PRINCIPAL (LAYOUT RESPONSIVO)
+       CONTEÚDO PRINCIPAL
        ======================================================================== -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+  <main class="layout">
 
-    <!-- COLUNA ESQUERDA: EDITOR DE DOMINÓS & CONFIGURAÇÕES (Lg: 4 colunas) -->
-    <section class="lg:col-span-4 flex flex-col gap-5">
-      
-      <!-- Card: Configurações do Problema (K Máximo) -->
-      <div class="glass-panel rounded-2xl p-4 lg:p-5 flex flex-col gap-4">
-        <div class="flex items-center justify-between border-b border-white/10 pb-3">
-          <div class="flex items-center gap-2">
-            <span class="text-cyan-400 font-bold text-sm uppercase tracking-wider">Parâmetros</span>
-          </div>
-          <span class="text-xs text-slate-400 font-mono">Bound K</span>
+    <!-- COLUNA ESQUERDA: PARÂMETROS E CONJUNTO DE DOMINÓS -->
+    <section class="column">
+
+      <div class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title"><span class="panel-num">1</span>Limite <i>K</i></h2>
+          <span id="display-max-k" class="k-value">7</span>
         </div>
 
-        <div>
-          <div class="flex items-center justify-between mb-2">
-            <label for="input-max-k" class="text-xs font-semibold text-slate-300">
-              Limite Máximo de Peças ($K$):
-            </label>
-            <span id="display-max-k" class="text-sm font-bold font-mono text-cyan-400 px-2 py-0.5 rounded bg-cyan-950/60 border border-cyan-800">7</span>
-          </div>
-          <div class="flex items-center gap-3">
-            <input type="range" id="slider-max-k" min="1" max="15" value="7" class="flex-1 accent-cyan-400 cursor-pointer">
-            <input type="number" id="input-max-k" min="1" max="25" value="7" class="w-16 bg-slate-900 border border-white/15 rounded-lg px-2.5 py-1 text-center font-mono text-sm text-white focus:outline-none focus:border-cyan-500">
-          </div>
-          <p class="text-[11px] text-slate-400 mt-2">
-            Busca soluções com comprimento $1 \le m \le K$. O espaço de busca bruto é de até $|D|^K$ caminhos.
-          </p>
+        <div class="k-control">
+          <input type="range" id="slider-max-k" min="1" max="15" value="7" aria-label="Limite K">
+          <input type="number" id="input-max-k" min="1" max="25" value="7" class="input input-k" aria-label="Limite K">
         </div>
+        <p class="hint">
+          Procura sequências com 1 &le; <i>m</i> &le; <i>K</i> peças. Sem podas, seriam até
+          |<i>D</i>|<sup><i>K</i></sup> sequências para testar.
+        </p>
       </div>
 
-      <!-- Card: Conjunto de Dominós (D) -->
-      <div class="glass-panel rounded-2xl p-4 lg:p-5 flex-1 flex flex-col gap-4">
-        <div class="flex items-center justify-between border-b border-white/10 pb-3">
-          <div class="flex items-center gap-2">
-            <span class="text-cyan-400 font-bold text-sm uppercase tracking-wider">Conjunto de Dominós</span>
-            <span id="domino-count-badge" class="px-2 py-0.2 rounded-full text-[11px] font-bold bg-slate-800 text-slate-300 border border-white/10">4</span>
-          </div>
-          <button id="btn-clear-dominoes" class="text-xs text-slate-400 hover:text-rose-400 transition" title="Remover todos">
-            Limpar
-          </button>
+      <div class="panel panel-grow">
+        <div class="panel-head">
+          <h2 class="panel-title"><span class="panel-num">2</span>Peças <span class="count" id="domino-count-badge">4</span></h2>
+          <button id="btn-clear-dominoes" class="btn-link" title="Remover todas">Remover todas</button>
         </div>
 
-        <!-- Formulário para Adicionar Novo Dominó -->
-        <form id="form-add-domino" class="bg-slate-900/70 p-3 rounded-xl border border-white/10 flex flex-col gap-2.5">
-          <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Criar Novo Dominó</span>
-          <div class="grid grid-cols-2 gap-2">
-            <div>
-              <label class="text-[10px] text-cyan-400 font-bold block mb-1">TOPO (t)</label>
-              <input type="text" id="input-new-top" required placeholder="Ex: ab" maxlength="15" class="w-full bg-slate-950 border border-white/15 rounded-lg px-2.5 py-1.5 font-mono text-xs text-cyan-300 focus:outline-none focus:border-cyan-400 uppercase">
-            </div>
-            <div>
-              <label class="text-[10px] text-indigo-400 font-bold block mb-1">BASE (b)</label>
-              <input type="text" id="input-new-bottom" required placeholder="Ex: a" maxlength="15" class="w-full bg-slate-950 border border-white/15 rounded-lg px-2.5 py-1.5 font-mono text-xs text-indigo-300 focus:outline-none focus:border-indigo-400 uppercase">
-            </div>
-          </div>
-          <button type="submit" class="w-full py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white font-semibold text-xs transition shadow-md shadow-cyan-600/20 active:scale-[0.98]">
-            + Adicionar Dominó
-          </button>
+        <form id="form-add-domino" class="add-form">
+          <label class="field">
+            <span>Topo</span>
+            <input type="text" id="input-new-top" required placeholder="ab" maxlength="15" class="input mono">
+          </label>
+          <label class="field">
+            <span>Base</span>
+            <input type="text" id="input-new-bottom" required placeholder="a" maxlength="15" class="input mono">
+          </label>
+          <button type="submit" class="btn add-btn">Adicionar</button>
         </form>
 
-        <!-- Lista de Dominós Existentes -->
-        <div class="flex-1 overflow-y-auto max-h-[360px] pr-1">
-          <p class="text-[11px] text-slate-400 mb-2.5 italic">
-            💡 Dica: Clique em qualquer peça para anexá-la à esteira manual!
-          </p>
-          <div id="domino-palette-container" class="flex flex-wrap gap-3.5 justify-start">
-            <!-- Inserido dinamicamente via app.js -->
-          </div>
+        <p class="hint">Clique numa peça para colocá-la na esteira.</p>
+        <div id="domino-palette-container" class="palette">
+          <!-- Inserido dinamicamente via app.js -->
         </div>
-
       </div>
 
     </section>
 
+    <!-- COLUNA DIREITA: ESTEIRA, FITAS E SOLVER -->
+    <section class="column">
 
-    <!-- COLUNA DIREITA: ESTEIRA, FITAS E MOTOR DO SOLVER (Lg: 8 colunas) -->
-    <section class="lg:col-span-8 flex flex-col gap-5">
-      
-      <!-- CARD 1: ESTEIRA & COMPARADOR DE FITAS (SANDBOX UNIFICADO) -->
-      <div class="glass-panel rounded-2xl p-4 lg:p-5 flex flex-col gap-4">
-        
-        <!-- Header da Esteira -->
-        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-3">
-          <div class="flex items-center gap-2">
-            <span class="text-emerald-400 font-bold text-sm uppercase tracking-wider">Esteira de Dominós (Sandbox)</span>
-            <span id="conveyor-length-badge" class="px-2 py-0.5 rounded-full text-xs font-bold bg-emerald-950 text-emerald-300 border border-emerald-700/50">0 peças</span>
-          </div>
-          
-          <div class="flex items-center gap-2">
-            <button id="btn-undo-domino" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 border border-white/10 transition disabled:opacity-40" disabled>
-              ↩ Desfazer
-            </button>
-            <button id="btn-clear-conveyor" class="px-2.5 py-1 rounded-lg bg-rose-950/40 hover:bg-rose-900/60 text-xs font-medium text-rose-300 border border-rose-800/40 transition disabled:opacity-40" disabled>
-              🗑️ Limpar Esteira
-            </button>
+      <!-- ESTEIRA E FITAS -->
+      <div class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title"><span class="panel-num">3</span>Esteira <span class="count" id="conveyor-length-badge">0 peças</span></h2>
+          <div class="btn-row">
+            <button id="btn-undo-domino" class="btn btn-sm" disabled>Desfazer</button>
+            <button id="btn-clear-conveyor" class="btn btn-sm" disabled>Limpar</button>
           </div>
         </div>
 
-        <!-- Área dos Dominós Montados na Sequência -->
-        <div class="bg-slate-950/60 rounded-xl p-3 border border-white/5 min-h-[96px] flex items-center overflow-x-auto gap-3" id="conveyor-dominoes-list">
-          <!-- Dominós na esteira aparecem aqui -->
-          <div class="text-xs text-slate-500 italic mx-auto py-4" id="conveyor-empty-msg">
-            Nenhum dominó na esteira. Clique em um dominó da paleta para começar ou use o solver.
+        <div class="conveyor" id="conveyor-dominoes-list">
+          <div class="empty" id="conveyor-empty-msg">
+            Nenhuma peça na esteira.
           </div>
         </div>
 
-        <!-- COMPARADOR DE FITAS DUPLAS (DUAL TAPE INSPECTOR) -->
-        <div class="bg-slate-900/80 rounded-xl p-4 border border-white/10 flex flex-col gap-3">
-          <div class="flex items-center justify-between text-xs">
-            <span class="font-bold text-slate-300 uppercase tracking-wider text-[11px]">Alinhamento de Fitas (Caractere por Caractere)</span>
-            <div class="flex items-center gap-3 font-mono text-[11px]">
-              <span class="text-cyan-400 font-semibold">Topo: <span id="tape-top-len">0</span> chars</span>
-              <span class="text-indigo-400 font-semibold">Base: <span id="tape-bottom-len">0</span> chars</span>
+        <div class="tapes">
+          <div class="tapes-head">
+            <span>Concatenação, caractere por caractere</span>
+            <span class="mono">topo <span id="tape-top-len">0</span> &middot; base <span id="tape-bottom-len">0</span></span>
+          </div>
+
+          <div class="tape-row">
+            <span class="tape-label">topo</span>
+            <div class="tape-track" id="tape-track-top">
+              <span class="tape-empty">vazio</span>
             </div>
           </div>
 
-          <!-- Fita Superior -->
-          <div class="flex items-center gap-2">
-            <span class="w-12 text-[10px] font-bold text-cyan-400 uppercase tracking-wider text-right shrink-0">Fita T:</span>
-            <div class="tape-track flex-1 bg-slate-950/90 rounded-lg px-2 py-1.5 border border-white/5" id="tape-track-top">
-              <span class="text-xs text-slate-600 font-mono py-1 px-2">vazio</span>
+          <div class="tape-row">
+            <span class="tape-label">base</span>
+            <div class="tape-track" id="tape-track-bottom">
+              <span class="tape-empty">vazio</span>
             </div>
           </div>
 
-          <!-- Fita Inferior -->
-          <div class="flex items-center gap-2">
-            <span class="w-12 text-[10px] font-bold text-indigo-400 uppercase tracking-wider text-right shrink-0">Fita B:</span>
-            <div class="tape-track flex-1 bg-slate-950/90 rounded-lg px-2 py-1.5 border border-white/5" id="tape-track-bottom">
-              <span class="text-xs text-slate-600 font-mono py-1 px-2">vazio</span>
-            </div>
+          <div class="legend">
+            <span><i class="sw sw-match"></i>iguais</span>
+            <span><i class="sw sw-mismatch"></i>divergem</span>
+            <span><i class="sw sw-remainder"></i>excedente</span>
           </div>
 
-          <!-- Banner de Status de Alinhamento -->
-          <div id="tape-status-banner" class="rounded-lg p-2.5 text-xs font-medium flex items-center justify-between bg-slate-800/80 border border-white/10 text-slate-300">
-            <div class="flex items-center gap-2" id="tape-status-content">
-              <span class="w-2 h-2 rounded-full bg-slate-500"></span>
-              <span>Aguardando dominós na esteira...</span>
-            </div>
-            <span id="tape-status-detail" class="font-mono text-[11px] text-slate-400"></span>
+          <div id="tape-status-banner" class="status">
+            <div id="tape-status-content">Esteira vazia.</div>
+            <span id="tape-status-detail" class="status-detail"></span>
           </div>
-
         </div>
-
       </div>
 
-
-      <!-- CARD 2: PAINEL DO SOLVER AUTOMÁTICO & MODO DIDÁTICO -->
-      <div class="glass-panel rounded-2xl p-4 lg:p-5 flex flex-col gap-4">
-        
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
-          <div class="flex items-center gap-2">
-            <span class="text-indigo-400 font-bold text-sm uppercase tracking-wider">Motor de Resolução (BFS Solver)</span>
-          </div>
-          
-          <!-- Botões de Execução -->
-          <div class="flex items-center gap-2">
-            <button id="btn-fast-solve" class="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs shadow-lg shadow-emerald-600/30 transition flex items-center gap-2 active:scale-95">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              <span>Resolver com Web Worker</span>
-            </button>
-
-            <button id="btn-toggle-didactic" class="px-3 py-2 rounded-xl bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-700/50 text-indigo-300 font-bold text-xs transition flex items-center gap-1.5 active:scale-95">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-              <span>Modo Didático</span>
-            </button>
+      <!-- SOLVER -->
+      <div class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title"><span class="panel-num">4</span>Busca automática</h2>
+          <div class="btn-row">
+            <button id="btn-toggle-didactic" class="btn">Passo a passo</button>
+            <button id="btn-fast-solve" class="btn btn-primary">Resolver</button>
           </div>
         </div>
 
-        <!-- Controles do Modo Didático (Colapsável) -->
-        <div id="didactic-controls-panel" class="hidden bg-slate-900/90 rounded-xl p-3 border border-indigo-500/30 flex flex-wrap items-center justify-between gap-3">
-          <div class="flex items-center gap-2">
-            <button id="btn-didactic-play" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1 transition">
-              ▶ Executar
-            </button>
-            <button id="btn-didactic-step" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs flex items-center gap-1 transition">
-              ⏭ Próximo Passo
-            </button>
-            <button id="btn-didactic-reset" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition">
-              🔄 Reiniciar
-            </button>
+        <!-- Controles do modo passo a passo -->
+        <div id="didactic-controls-panel" class="stepper hidden">
+          <div class="btn-row">
+            <button id="btn-didactic-play" class="btn btn-sm">Executar</button>
+            <button id="btn-didactic-step" class="btn btn-sm">Próximo passo</button>
+            <button id="btn-didactic-reset" class="btn btn-sm">Reiniciar</button>
           </div>
-
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-slate-400">Velocidade:</span>
-            <input type="range" id="didactic-speed-slider" min="50" max="1000" step="50" value="300" class="w-24 accent-indigo-400 cursor-pointer">
-            <span id="didactic-speed-label" class="text-xs font-mono text-slate-300">300ms</span>
-          </div>
+          <label class="speed">
+            <span>Intervalo</span>
+            <input type="range" id="didactic-speed-slider" min="50" max="1000" step="50" value="300">
+            <span id="didactic-speed-label" class="mono">300ms</span>
+          </label>
         </div>
 
-        <!-- Dashboard de Métricas da Busca -->
-        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2.5">
-          
-          <div class="glass-panel-subtle rounded-xl p-2.5 text-center">
-            <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Tempo</span>
-            <span id="metric-time" class="font-mono font-bold text-sm text-cyan-400">0.0 ms</span>
+        <!-- Métricas -->
+        <dl class="metrics">
+          <div>
+            <dt>Tempo</dt>
+            <dd id="metric-time">0.0 ms</dd>
           </div>
-
-          <div class="glass-panel-subtle rounded-xl p-2.5 text-center">
-            <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Nós Explorados</span>
-            <span id="metric-explored" class="font-mono font-bold text-sm text-white">0</span>
+          <div>
+            <dt>Nós expandidos</dt>
+            <dd id="metric-explored">0</dd>
           </div>
-
-          <div class="glass-panel-subtle rounded-xl p-2.5 text-center">
-            <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5" title="Podas por divergência imediata de prefixo">Poda Prefixo</span>
-            <span id="metric-pruned-prefix" class="font-mono font-bold text-sm text-rose-400">0</span>
+          <div>
+            <dt title="Ramos descartados porque topo e base divergem">Poda por prefixo</dt>
+            <dd id="metric-pruned-prefix">0</dd>
           </div>
-
-          <div class="glass-panel-subtle rounded-xl p-2.5 text-center">
-            <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5" title="Podas de caudas/excessos já visitados">Poda Ciclos</span>
-            <span id="metric-pruned-cycle" class="font-mono font-bold text-sm text-amber-400">0</span>
+          <div>
+            <dt title="Ramos descartados porque o excedente já foi visto">Poda por estado</dt>
+            <dd id="metric-pruned-cycle">0</dd>
           </div>
-
-          <div class="glass-panel-subtle rounded-xl p-2.5 text-center">
-            <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5" title="Podas por atingir o limite K">Poda Limite K</span>
-            <span id="metric-pruned-depth" class="font-mono font-bold text-sm text-purple-400">0</span>
+          <div>
+            <dt title="Nós que atingiram o limite K">Poda por <i>K</i></dt>
+            <dd id="metric-pruned-depth">0</dd>
           </div>
-
-          <div class="glass-panel-subtle rounded-xl p-2.5 text-center">
-            <span class="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Fila BFS</span>
-            <span id="metric-queue" class="font-mono font-bold text-sm text-slate-300">0</span>
+          <div>
+            <dt>Fila</dt>
+            <dd id="metric-queue">0</dd>
           </div>
+        </dl>
 
-        </div>
-
-        <!-- Banner de Resultado do Solver -->
-        <div id="solver-result-container" class="hidden rounded-xl p-4 border transition">
+        <div id="solver-result-container" class="result hidden">
           <!-- Preenchido via app.js -->
         </div>
 
-        <!-- Log Didático do Stepper (quando ativo) -->
-        <div id="didactic-log-container" class="hidden bg-slate-950/80 rounded-xl p-3 border border-white/5 text-xs font-mono max-h-36 overflow-y-auto">
-          <div class="text-slate-500 italic mb-1">// Registro de passos do BFS Didático:</div>
-          <div id="didactic-log-entries" class="flex flex-col gap-1 text-slate-300"></div>
+        <div id="didactic-log-container" class="log hidden">
+          <div id="didactic-log-entries"></div>
         </div>
-
       </div>
 
     </section>
@@ -355,187 +212,129 @@
 
 
   <!-- ========================================================================
-       GAVETA LATERAL RETRÁTIL (THEORETICAL DRAWER)
+       GAVETA DE TEORIA
        ======================================================================== -->
-  <div id="drawer-container" class="fixed inset-0 z-50 pointer-events-none opacity-0 transition-opacity duration-300">
-    <!-- Overlay Escuro com Backdrop Blur -->
-    <div id="drawer-backdrop" class="drawer-overlay absolute inset-0 cursor-pointer"></div>
+  <div id="drawer-container" class="overlay">
+    <div id="drawer-backdrop" class="backdrop"></div>
 
-    <!-- Painel da Gaveta -->
-    <aside id="drawer-panel" class="drawer-panel absolute top-0 right-0 h-full w-full max-w-xl bg-slate-950 border-l border-white/10 shadow-2xl p-6 overflow-y-auto flex flex-col gap-6 translate-x-full">
-      
-      <!-- Cabeçalho da Gaveta -->
-      <div class="flex items-center justify-between border-b border-white/10 pb-4">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-400">
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-          </div>
-          <div>
-            <h2 class="font-bold text-lg text-white">O que é o Bounded-PCP?</h2>
-            <p class="text-xs text-slate-400">Teoria da Computação, Indecidibilidade e Complexidade</p>
-          </div>
-        </div>
-        <button id="btn-close-drawer" class="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-white transition">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+    <aside id="drawer-panel" class="drawer" aria-label="Teoria">
+      <div class="drawer-head">
+        <h2>O que é o Bounded-PCP?</h2>
+        <button id="btn-close-drawer" class="btn btn-sm" aria-label="Fechar">Fechar</button>
       </div>
 
-      <!-- Conteúdo Teórico Estruturado -->
-      <div class="flex flex-col gap-6 text-sm text-slate-300 leading-relaxed">
-        
-        <!-- Seção 1: O PCP Clássico -->
-        <div>
-          <h3 class="text-base font-bold text-cyan-400 mb-2 flex items-center gap-2">
-            <span>1. O Problema da Correspondência de Post (PCP)</span>
-          </h3>
-          <p class="mb-2">
-            Proposto pelo matemático <strong>Emil Post em 1946</strong>, o PCP é formulado através de uma coleção de peças de dominó bipartidas:
-          </p>
-          <div class="bg-slate-900 p-3 rounded-lg border border-white/5 font-mono text-xs text-center text-slate-200 mb-2">
-            D = { [t₁ / b₁], [t₂ / b₂], ..., [tₙ / bₙ] } onde tᵢ, bᵢ ∈ Σ⁺
+      <article class="prose">
+
+        <h3>1. O problema de Post</h3>
+        <p>
+          Proposto por Emil Post em 1946. A entrada é um conjunto finito de peças de dominó,
+          cada uma com uma palavra no topo e outra na base:
+        </p>
+        <p class="formula">D = { [t<sub>1</sub> / b<sub>1</sub>], [t<sub>2</sub> / b<sub>2</sub>], …, [t<sub>n</sub> / b<sub>n</sub>] }, &nbsp;t<sub>i</sub>, b<sub>i</sub> &isin; &Sigma;<sup>+</sup></p>
+        <p>
+          A pergunta é se existe uma sequência de índices <i>i</i><sub>1</sub>, …, <i>i</i><sub><i>m</i></sub>
+          (com <i>m</i> &ge; 1, repetições permitidas) tal que os topos concatenados formem
+          a mesma palavra que as bases concatenadas:
+        </p>
+        <p class="formula">t<sub>i<sub>1</sub></sub> t<sub>i<sub>2</sub></sub> … t<sub>i<sub>m</sub></sub> = b<sub>i<sub>1</sub></sub> b<sub>i<sub>2</sub></sub> … b<sub>i<sub>m</sub></sub></p>
+
+        <h3>2. Sem limite, é indecidível</h3>
+        <p>
+          Se <i>m</i> pode ser qualquer tamanho, não existe algoritmo que responda sim ou não
+          para toda instância. A prova reduz o problema da aceitação de Máquinas de Turing ao PCP:
+          as peças são construídas para simular a computação da máquina, e uma correspondência
+          existe se e somente se a máquina aceita a entrada (Sipser, seção 5.2).
+        </p>
+
+        <h3>3. Com limite <i>K</i></h3>
+        <p>Perguntando “existe correspondência com no máximo <i>K</i> peças?”:</p>
+        <ul>
+          <li>
+            <strong>Fica decidível.</strong> Há no máximo |D| + |D|<sup>2</sup> + … + |D|<sup>K</sup>
+            sequências, então uma busca exaustiva sempre termina.
+          </li>
+          <li>
+            <strong>É NP-completo.</strong> Está em NP porque, dada uma sequência candidata,
+            basta concatenar e comparar em tempo polinomial. É NP-difícil (catalogado em Garey &amp; Johnson, 1979).
+          </li>
+        </ul>
+
+        <h3>4. Podas usadas aqui</h3>
+        <dl class="defs">
+          <dt>Raiz</dt>
+          <dd>Só começa por peças em que t<sub>i</sub> é prefixo de b<sub>i</sub> ou o contrário.</dd>
+          <dt>Prefixo</dt>
+          <dd>Ao anexar uma peça, se topo e base passam a divergir em algum caractere, o ramo morre.</dd>
+          <dt>Estado</dt>
+          <dd>
+            O que importa para o futuro é só o excedente (qual fita está adiantada e com quais caracteres).
+            Se esse excedente já apareceu, o ramo é redundante. Como a busca é em largura, a primeira
+            ocorrência é sempre a mais curta.
+          </dd>
+          <dt><i>K</i></dt>
+          <dd>Nós com <i>K</i> peças não geram filhos.</dd>
+        </dl>
+
+        <h3>5. Exemplos</h3>
+        <div class="examples">
+          <div class="example">
+            <div>
+              <strong>Sipser, exemplo 5.15</strong>
+              <span>4 peças sobre {a, b, c}. Solução com 5 peças: abcaaabc.</span>
+            </div>
+            <button class="btn btn-sm btn-load-preset-drawer" data-preset="sipser">Carregar</button>
           </div>
-          <p>
-            O objetivo é encontrar uma sequência finita de índices $(i_1, i_2, \dots, i_m)$ com $m \ge 1$ tal que a concatenação de todos os topos seja <strong>exatamente idêntica</strong> à concatenação de todas as bases:
-          </p>
-          <div class="bg-slate-900 p-2.5 rounded-lg border border-white/5 font-mono text-xs text-emerald-400 text-center my-2">
-            t_{i₁} t_{i₂} ... t_{i_m} = b_{i₁} b_{i₂} ... b_{i_m}
+          <div class="example">
+            <div>
+              <strong>Solução rápida</strong>
+              <span>Peças binárias, solução com 2 peças: 001.</span>
+            </div>
+            <button class="btn btn-sm btn-load-preset-drawer" data-preset="fast">Carregar</button>
           </div>
-          <p class="text-xs text-slate-400">
-            Você pode repetir qualquer dominó quantas vezes desejar!
-          </p>
-        </div>
-
-        <!-- Seção 2: Por que o PCP clássico é Indecidível? -->
-        <div class="bg-rose-950/20 border border-rose-900/40 rounded-xl p-4">
-          <h3 class="text-base font-bold text-rose-400 mb-2 flex items-center gap-2">
-            <span>2. A Indecidibilidade do PCP Clássico</span>
-          </h3>
-          <p class="text-xs mb-2">
-            No caso irrestrito (onde a sequência pode ter qualquer tamanho), o PCP é <strong>indecidível</strong>. Não existe, nem nunca existirá, um algoritmo geral de computador capaz de responder com certeza "Sim" ou "Não" para qualquer instância dada de PCP.
-          </p>
-          <p class="text-xs text-slate-300">
-            <strong>Como se prova isso?</strong> Por redução a partir do <em>Problema da Parada de Máquinas de Turing (Halting Problem)</em>. Cada dominó pode simular uma transição da fita da Máquina de Turing. Uma correspondência válida existe se e somente se a Máquina de Turing aceitar a entrada!
-          </p>
-        </div>
-
-        <!-- Seção 3: O Bounded-PCP (Limitado por K) -->
-        <div class="bg-cyan-950/20 border border-cyan-800/40 rounded-xl p-4">
-          <h3 class="text-base font-bold text-cyan-300 mb-2 flex items-center gap-2">
-            <span>3. O Bounded-PCP: Como K muda o jogo?</span>
-          </h3>
-          <p class="text-xs mb-2">
-            Quando impomos uma restrição: <em>"Existe uma correspondência com no máximo K peças ($m \le K$)?"</em>, o problema ganha propriedades fascinantes:
-          </p>
-          <ul class="list-disc list-inside text-xs flex flex-col gap-1.5 text-slate-200">
-            <li><strong>Torna-se Decidível:</strong> Como o comprimento é limitado a $K$, o espaço de buscas é finito (no máximo $|D| + |D|^2 + \dots + |D|^K$ sequências).</li>
-            <li><strong>É NP-Completo:</strong> Pertence a NP porque, dada uma sequência de $m \le K$ dominós, podemos concatenar e verificar a igualdade em tempo polinomial $O(K \cdot L)$. É NP-difícil porque qualquer problema em NP pode ser reduzido a ele.</li>
-          </ul>
-        </div>
-
-        <!-- Seção 4: As Podas Matemáticas deste Solver -->
-        <div>
-          <h3 class="text-base font-bold text-amber-400 mb-2">4. As Podas Implementadas nesta Engine</h3>
-          <div class="grid grid-cols-1 gap-2.5 text-xs">
-            <div class="bg-slate-900 p-2.5 rounded-lg border border-white/5">
-              <span class="font-bold text-slate-200 block mb-0.5">🌱 Poda de Raiz (Peça Inicial):</span>
-              Apenas peças onde $t_i$ inicia $b_i$ ou vice-versa entram na fila inicial. Todas as outras são descartadas antes de iniciar.
+          <div class="example">
+            <div>
+              <strong>Solução longa</strong>
+              <span>3 peças, menor solução com 15. Com K = 14 não acha nada.</span>
             </div>
-            <div class="bg-slate-900 p-2.5 rounded-lg border border-white/5">
-              <span class="font-bold text-slate-200 block mb-0.5">✂️ Poda por Prefixo:</span>
-              Se após anexar uma peça $d$, o novo topo não for prefixo da nova base (ou vice-versa), o ramo é podado imediatamente.
-            </div>
-            <div class="bg-slate-900 p-2.5 rounded-lg border border-white/5">
-              <span class="font-bold text-slate-200 block mb-0.5">🔄 Poda de Estados Cíclicos / Cauda:</span>
-              O futuro da busca depende apenas do sufixo excedente (remainder). Guardamos `tipo:resto` em um conjunto visitado em BFS, podando estados redundantes.
-            </div>
+            <button class="btn btn-sm btn-load-preset-drawer" data-preset="long">Carregar</button>
           </div>
-        </div>
-
-        <!-- Seção 5: Exemplos Históricos com Carregamento Direto -->
-        <div>
-          <h3 class="text-base font-bold text-indigo-400 mb-3">5. Exemplos Clássicos para Testar</h3>
-          <div class="flex flex-col gap-3">
-            
-            <!-- Card Sipser -->
-            <div class="bg-slate-900/90 rounded-xl p-3 border border-white/10 flex items-center justify-between gap-3">
-              <div>
-                <span class="font-bold text-white text-xs block">Exemplo 5.15 do Livro de Sipser</span>
-                <span class="text-[11px] text-slate-400">4 dominós sobre {a, b, c}. Solução com 5 dominós: "abcaaabc"</span>
-              </div>
-              <button class="btn-load-preset-drawer px-3 py-1.5 rounded-lg bg-cyan-600/30 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/40 text-xs font-semibold transition shrink-0" data-preset="sipser">
-                Carregar
-              </button>
+          <div class="example">
+            <div>
+              <strong>Sem solução</strong>
+              <span>Nenhuma peça serve de início, então nada casa.</span>
             </div>
-
-            <!-- Card Rápido -->
-            <div class="bg-slate-900/90 rounded-xl p-3 border border-white/10 flex items-center justify-between gap-3">
-              <div>
-                <span class="font-bold text-white text-xs block">Solução Rápida (2 Peças)</span>
-                <span class="text-[11px] text-slate-400">Dominós binários com match no comprimento 2 ("001")</span>
-              </div>
-              <button class="btn-load-preset-drawer px-3 py-1.5 rounded-lg bg-cyan-600/30 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/40 text-xs font-semibold transition shrink-0" data-preset="fast">
-                Carregar
-              </button>
-            </div>
-
-            <!-- Card Sem Solução -->
-            <div class="bg-slate-900/90 rounded-xl p-3 border border-white/10 flex items-center justify-between gap-3">
-              <div>
-                <span class="font-bold text-white text-xs block">Sem Solução em K</span>
-                <span class="text-[11px] text-slate-400">Instância com dominós conflitantes que nunca casam</span>
-              </div>
-              <button class="btn-load-preset-drawer px-3 py-1.5 rounded-lg bg-cyan-600/30 hover:bg-cyan-600 text-cyan-300 hover:text-white border border-cyan-500/40 text-xs font-semibold transition shrink-0" data-preset="impossible">
-                Carregar
-              </button>
-            </div>
-
+            <button class="btn btn-sm btn-load-preset-drawer" data-preset="impossible">Carregar</button>
           </div>
         </div>
 
-      </div>
-
+      </article>
     </aside>
   </div>
 
 
   <!-- ========================================================================
-       MODAL DE IMPORTAR / EXPORTAR JSON
+       MODAL JSON
        ======================================================================== -->
-  <div id="json-modal-container" class="fixed inset-0 z-50 pointer-events-none opacity-0 transition-opacity duration-200 flex items-center justify-center p-4">
-    <div id="json-modal-backdrop" class="drawer-overlay absolute inset-0 cursor-pointer"></div>
-    <div class="glass-panel relative w-full max-w-lg rounded-2xl p-6 border border-white/15 shadow-2xl flex flex-col gap-4">
-      <div class="flex items-center justify-between border-b border-white/10 pb-3">
-        <h3 class="font-bold text-base text-white">Importar / Exportar Dominós (JSON)</h3>
-        <button id="btn-close-json-modal" class="text-slate-400 hover:text-white">✕</button>
+  <div id="json-modal-container" class="overlay overlay-center">
+    <div id="json-modal-backdrop" class="backdrop"></div>
+    <div class="modal">
+      <div class="drawer-head">
+        <h2>Importar / exportar peças</h2>
+        <button id="btn-close-json-modal" class="btn btn-sm" aria-label="Fechar">Fechar</button>
       </div>
 
-      <textarea id="json-textarea" rows="8" class="w-full bg-slate-950 border border-white/15 rounded-xl p-3 font-mono text-xs text-cyan-300 focus:outline-none focus:border-cyan-400" placeholder='[{"id": 1, "top": "ab", "bottom": "a"}]'></textarea>
+      <textarea id="json-textarea" rows="10" class="input mono textarea" placeholder='[{"id": 1, "top": "ab", "bottom": "a"}]'></textarea>
 
-      <div class="flex items-center justify-between gap-3">
-        <button id="btn-copy-json" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 transition">
-          📋 Copiar JSON
-        </button>
-        <div class="flex items-center gap-2">
-          <button id="btn-import-json" class="px-4 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-xs font-bold text-white transition">
-            Importar JSON
-          </button>
-        </div>
+      <div class="modal-foot">
+        <button id="btn-copy-json" class="btn btn-sm">Copiar</button>
+        <button id="btn-import-json" class="btn btn-sm btn-primary">Importar</button>
       </div>
     </div>
   </div>
 
 
-  <!-- ========================================================================
-       CONTAINER DE TOAST NOTIFICATIONS
-       ======================================================================== -->
   <div id="toast-container"></div>
 
-
-  <!-- Scripts da Aplicação -->
   <script src="solver.js"></script>
   <script src="app.js"></script>
 </body>
